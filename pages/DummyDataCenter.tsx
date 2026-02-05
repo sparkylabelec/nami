@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, UserLevel, ORG_STRUCTURE } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, UserLevel, ORG_STRUCTURE, Report } from '../types';
 import { dummyService } from '../services/dummyService';
 import { userService } from '../services/userService';
+import { reportService } from '../services/reportService';
 import { 
   Database, 
   UserPlus, 
@@ -18,13 +19,19 @@ import {
   Users,
   Trash2,
   AlertCircle,
-  RefreshCcw
+  RefreshCcw,
+  Settings2,
+  Filter,
+  X,
+  Building2,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 
 interface Props { user: User; }
 
 const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'reports' | 'cleanup'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'reports' | 'management' | 'cleanup'>('users');
   
   // User Generation States
   const [dept, setDept] = useState('');
@@ -37,6 +44,15 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [reportCountPerUser, setReportCountPerUser] = useState(2);
   const [userSearchTerm, setUserSearchTerm] = useState('');
+
+  // Management Tab States
+  const [allReports, setAllReports] = useState<Report[]>([]);
+  const [mgmtSearch, setMgmtSearch] = useState('');
+  const [mgmtDept, setMgmtDept] = useState('ALL');
+  const [mgmtTeam, setMgmtTeam] = useState('ALL');
+  const [mgmtSelectedIds, setMgmtSelectedIds] = useState<Set<string>>(new Set());
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false); // 2단계 확인 상태
   
   // Shared Processing States
   const [isProcessing, setIsProcessing] = useState(false);
@@ -46,9 +62,14 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
   const [actionType, setActionType] = useState<'create' | 'delete' | 'idle'>('idle');
 
   useEffect(() => {
-    if (activeTab === 'reports') {
+    if (activeTab === 'reports' || activeTab === 'management') {
       fetchAvailableUsers();
     }
+    if (activeTab === 'management') {
+      fetchReports();
+    }
+    // 탭 이동 시 확인 상태 초기화
+    setIsConfirmingDelete(false);
   }, [activeTab]);
 
   const fetchAvailableUsers = async () => {
@@ -56,15 +77,43 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
       const all = await userService.getAllUsers();
       setAvailableUsers(all);
     } catch (error) {
-      console.error(error);
+      addLog(`[오류] 회원 목록 로드 실패: ${error}`);
     }
   };
 
+  const fetchReports = async () => {
+    setIsLoadingReports(true);
+    try {
+      const data = await reportService.getReports();
+      setAllReports(data);
+    } catch (err) {
+      addLog(`[오류] 보고서 목록 로드 실패: ${err}`);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  const addLog = (msg: string) => {
+    setLogs(prev => [msg, ...prev].slice(0, 50));
+  };
+
+  // 리포트 생성 탭 전용 필터링
   const filteredUsers = availableUsers.filter(u => 
     u.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
     u.teamId.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
+
+  // 관리 탭 전용 필터링
+  const filteredMgmtReports = useMemo(() => {
+    return allReports.filter(r => {
+      const matchesSearch = r.title.toLowerCase().includes(mgmtSearch.toLowerCase()) || 
+                            r.authorName.toLowerCase().includes(mgmtSearch.toLowerCase());
+      const matchesDept = mgmtDept === 'ALL' || r.department === mgmtDept;
+      const matchesTeam = mgmtTeam === 'ALL' || r.teamId === mgmtTeam;
+      return matchesSearch && matchesDept && matchesTeam;
+    });
+  }, [allReports, mgmtSearch, mgmtDept, mgmtTeam]);
 
   const toggleUserSelection = (uid: string) => {
     const next = new Set(selectedUserIds);
@@ -73,9 +122,35 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
     setSelectedUserIds(next);
   };
 
+  const toggleMgmtSelection = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const next = new Set(mgmtSelectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setMgmtSelectedIds(next);
+    // 선택 변경 시 삭제 확인 상태 초기화
+    if (isConfirmingDelete) setIsConfirmingDelete(false);
+  };
+
+  const toggleMgmtSelectAll = () => {
+    if (mgmtSelectedIds.size === filteredMgmtReports.length && filteredMgmtReports.length > 0) {
+      setMgmtSelectedIds(new Set());
+    } else {
+      const allIds = filteredMgmtReports.map(r => r.reportId);
+      setMgmtSelectedIds(new Set(allIds));
+    }
+    if (isConfirmingDelete) setIsConfirmingDelete(false);
+  };
+
   const handleCreateUsers = async () => {
-    if (!dept || !team) { alert('사업부와 팀을 선택해주세요.'); return; }
-    setLogs([]);
+    if (!dept || !team) { 
+      addLog("[경고] 사업부와 팀을 선택해야 합니다.");
+      return; 
+    }
+    setLogs([`[SYSTEM] 회원 생성 프로세스 시작`]);
     setIsProcessing(true);
     setProgress(0);
     setActionType('create');
@@ -83,12 +158,12 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
     try {
       const results = await dummyService.createDummyUsers({
         department: dept, teamId: team, level: level, count: userCount
-      }, (msg) => {
-        setLogs(prev => [msg, ...prev].slice(0, 50));
+      }, (msg: string) => {
+        addLog(msg);
       });
       setTotalCreated(results.length);
     } catch (error) {
-      alert('생성 중 오류 발생');
+      addLog(`[오류] 생성 실패: ${error}`);
     } finally {
       setIsProcessing(false);
       setProgress(100);
@@ -96,9 +171,12 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
   };
 
   const handleCreateReports = async () => {
-    if (selectedUserIds.size === 0) { alert('리포트를 작성할 대상을 선택해주세요.'); return; }
+    if (selectedUserIds.size === 0) {
+      addLog("[경고] 대상을 먼저 선택하세요.");
+      return;
+    }
     
-    setLogs([]);
+    setLogs([`[SYSTEM] 리포트 벌크 생성 시작`]);
     setIsProcessing(true);
     setProgress(0);
     setTotalCreated(0);
@@ -110,24 +188,63 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
       const results = await dummyService.createDummyReports(
         targetUsers, 
         reportCountPerUser, 
-        (msg, prog) => {
-          setLogs(prev => [msg, ...prev].slice(0, 50));
+        (msg: string, prog: number) => {
+          addLog(msg);
           setProgress(prog);
         }
       );
       setTotalCreated(results.length);
     } catch (error) {
-      alert('리포트 생성 중 오류 발생');
+      addLog(`[오류] 리포트 생성 실패: ${error}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDeleteAllDummies = async (type: 'users' | 'reports') => {
-    const confirmMsg = type === 'users' ? "모든 더미 회원 데이터를 삭제하시겠습니까?" : "모든 더미 리포트 데이터를 삭제하시겠습니까?";
-    if (!window.confirm(confirmMsg + "\n이 작업은 복구가 불가능합니다.")) return;
+  const handleMgmtDelete = async () => {
+    const count = mgmtSelectedIds.size;
+    
+    if (count === 0) return;
 
-    setLogs([]);
+    // 1단계: 확인 요청 상태로 변경
+    if (!isConfirmingDelete) {
+      setIsConfirmingDelete(true);
+      addLog(`[SYSTEM] ${count}건의 보고서 삭제를 위해 한 번 더 클릭하세요.`);
+      return;
+    }
+
+    // 2단계: 실제 삭제 실행 (샌드박스용 confirm 우회)
+    setLogs([`[SYSTEM] 선택 삭제 프로세스 시작 (총 ${count}건)`]);
+    setIsProcessing(true);
+    setIsConfirmingDelete(false);
+    setProgress(0);
+    setTotalCreated(0);
+    setActionType('delete');
+
+    let deletedCount = 0;
+    const idsToDelete: string[] = Array.from(mgmtSelectedIds);
+
+    for (const id of idsToDelete) {
+      try {
+        await reportService.deleteReport(id);
+        deletedCount++;
+        const prog = Math.round((deletedCount / count) * 100);
+        addLog(`[삭제성공] ID: ${id}`);
+        setProgress(prog);
+        setTotalCreated(deletedCount);
+      } catch (err: any) {
+        addLog(`[삭제실패] ID: ${id} - ${err.message || 'Error'}`);
+      }
+    }
+
+    addLog(`[SYSTEM] 모든 작업 완료 (성공: ${deletedCount}/${count})`);
+    setMgmtSelectedIds(new Set());
+    await fetchReports();
+    setIsProcessing(false);
+  };
+
+  const handleDeleteAllDummies = async (type: 'users' | 'reports') => {
+    setLogs([`[SYSTEM] 전체 데이터 클린업 시작 (${type})`]);
     setIsProcessing(true);
     setProgress(0);
     setTotalCreated(0);
@@ -136,19 +253,19 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
     try {
       let count = 0;
       if (type === 'users') {
-        count = await dummyService.deleteAllDummyUsers((msg, prog) => {
-          setLogs(prev => [msg, ...prev].slice(0, 50));
+        count = await dummyService.deleteAllDummyUsers((msg: string, prog: number) => {
+          addLog(msg);
           setProgress(prog);
         });
       } else {
-        count = await dummyService.deleteAllDummyReports((msg, prog) => {
-          setLogs(prev => [msg, ...prev].slice(0, 50));
+        count = await dummyService.deleteAllDummyReports((msg: string, prog: number) => {
+          addLog(msg);
           setProgress(prog);
         });
       }
       setTotalCreated(count);
     } catch (err) {
-      alert("삭제 작업 중 치명적 오류가 발생했습니다.");
+      addLog(`[오류] 전체 삭제 작업 중 문제 발생`);
     } finally {
       setIsProcessing(false);
     }
@@ -169,21 +286,28 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
       {/* Tabs */}
       <div className="flex flex-wrap bg-gray-100 p-1.5 rounded-[2rem] w-fit shadow-inner gap-1">
         <button 
-          onClick={() => { setActiveTab('users'); setActionType('idle'); setLogs([]); setProgress(0); }}
+          onClick={() => { setActiveTab('users'); setActionType('idle'); setLogs([]); setProgress(0); setTotalCreated(0); }}
           className={`px-6 md:px-8 py-3 rounded-[1.5rem] text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <UserPlus size={18} />
           더미 회원 생성
         </button>
         <button 
-          onClick={() => { setActiveTab('reports'); setActionType('idle'); setLogs([]); setProgress(0); }}
+          onClick={() => { setActiveTab('reports'); setActionType('idle'); setLogs([]); setProgress(0); setTotalCreated(0); }}
           className={`px-6 md:px-8 py-3 rounded-[1.5rem] text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'reports' ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <FileText size={18} />
           리포트 벌크 생성
         </button>
         <button 
-          onClick={() => { setActiveTab('cleanup'); setActionType('idle'); setLogs([]); setProgress(0); }}
+          onClick={() => { setActiveTab('management'); setActionType('idle'); setLogs([]); setProgress(0); setTotalCreated(0); }}
+          className={`px-6 md:px-8 py-3 rounded-[1.5rem] text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'management' ? 'bg-white text-gray-900 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <Settings2 size={18} />
+          보고서 관리
+        </button>
+        <button 
+          onClick={() => { setActiveTab('cleanup'); setActionType('idle'); setLogs([]); setProgress(0); setTotalCreated(0); }}
           className={`px-6 md:px-8 py-3 rounded-[1.5rem] text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'cleanup' ? 'bg-rose-500 text-white shadow-md' : 'text-gray-400 hover:text-rose-500'}`}
         >
           <RefreshCcw size={18} />
@@ -294,6 +418,121 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
                 {isProcessing ? <Loader2 className="animate-spin" size={24} /> : <Zap size={24} className="text-white" />}
                 고품질 리포트 {selectedUserIds.size * reportCountPerUser}건 자동 작성
               </button>
+            </div>
+          ) : activeTab === 'management' ? (
+            <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <Settings2 size={20} />
+                  </div>
+                  <h3 className="text-xl font-black text-gray-900 tracking-tight">전체 보고서 관리</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                   <button 
+                    onClick={toggleMgmtSelectAll}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-600 transition-all"
+                   >
+                     {mgmtSelectedIds.size === filteredMgmtReports.length && filteredMgmtReports.length > 0 ? <CheckSquare size={16} className="text-indigo-600" /> : <Square size={16} />}
+                     전체 선택
+                   </button>
+                   <button 
+                    onClick={handleMgmtDelete}
+                    disabled={mgmtSelectedIds.size === 0 || isProcessing}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm border ${
+                      isConfirmingDelete 
+                        ? 'bg-rose-600 text-white border-rose-700 hover:bg-rose-700 animate-pulse' 
+                        : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
+                    } disabled:opacity-30`}
+                   >
+                     {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                     {isConfirmingDelete ? '정말 삭제할까요?' : '선택 삭제'}
+                   </button>
+                   {isConfirmingDelete && (
+                     <button 
+                      onClick={() => setIsConfirmingDelete(false)}
+                      className="p-2 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-xl transition-all"
+                     >
+                       <X size={16} />
+                     </button>
+                   )}
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-6 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                  <input 
+                    type="text" 
+                    placeholder="제목 또는 작성자 검색..."
+                    value={mgmtSearch}
+                    onChange={(e) => { setMgmtSearch(e.target.value); setMgmtSelectedIds(new Set()); }}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-xs font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  />
+                </div>
+                <div className="md:col-span-3 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-3 py-2.5">
+                   <Building2 size={14} className="text-gray-400" />
+                   <select 
+                    value={mgmtDept} 
+                    onChange={(e) => { setMgmtDept(e.target.value); setMgmtTeam('ALL'); setMgmtSelectedIds(new Set()); }}
+                    className="w-full bg-transparent outline-none text-[11px] font-black text-gray-600"
+                   >
+                     <option value="ALL">전체 사업부</option>
+                     {Object.keys(ORG_STRUCTURE).map(d => <option key={d} value={d}>{d}</option>)}
+                   </select>
+                </div>
+                <div className="md:col-span-3 flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl px-3 py-2.5">
+                   <Filter size={14} className="text-gray-400" />
+                   <select 
+                    value={mgmtTeam} 
+                    onChange={(e) => { setMgmtTeam(e.target.value); setMgmtSelectedIds(new Set()); }}
+                    disabled={mgmtDept === 'ALL'}
+                    className="w-full bg-transparent outline-none text-[11px] font-black text-gray-600 disabled:opacity-30"
+                   >
+                     <option value="ALL">전체 팀</option>
+                     {mgmtDept !== 'ALL' && ORG_STRUCTURE[mgmtDept].map(t => <option key={t} value={t}>{t}</option>)}
+                   </select>
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="max-h-[500px] overflow-y-auto pr-2 custom-scrollbar space-y-3 border-t border-gray-50 pt-6">
+                {isLoadingReports ? (
+                  <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-indigo-300" size={32} /></div>
+                ) : filteredMgmtReports.length === 0 ? (
+                  <div className="py-20 text-center text-gray-300 font-bold italic">표시할 보고서가 없습니다.</div>
+                ) : (
+                  filteredMgmtReports.map(r => (
+                    <div 
+                      key={r.reportId}
+                      onClick={() => toggleMgmtSelection(r.reportId)}
+                      className={`group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${mgmtSelectedIds.has(r.reportId) ? 'bg-indigo-50/50 border-indigo-200' : 'bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200 shadow-sm hover:shadow'}`}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div 
+                          className="shrink-0"
+                          onClick={(e) => toggleMgmtSelection(r.reportId, e)}
+                        >
+                          {mgmtSelectedIds.has(r.reportId) ? <CheckSquare className="text-indigo-600" size={20} /> : <Square className="text-gray-300 group-hover:text-indigo-300" size={20} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                           <p className="text-sm font-black text-gray-800 truncate mb-1">{r.title}</p>
+                           <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tighter">{r.authorName}</span>
+                              <div className="w-1 h-1 rounded-full bg-gray-200"></div>
+                              <span className="text-[10px] font-bold text-gray-400">{r.teamId}</span>
+                           </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tighter">{new Date(r.createdAt).toLocaleDateString()}</span>
+                        <ChevronRight size={14} className="text-gray-200 group-hover:text-indigo-300 group-hover:translate-x-1 transition-all" />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           ) : (
             <div className="bg-white rounded-[2.5rem] p-10 border border-rose-100 shadow-sm space-y-10">
@@ -417,7 +656,7 @@ const DummyDataCenter: React.FC<Props> = ({ user: currentUser }) => {
               onClick={() => { setTotalCreated(0); setActionType('idle'); }} 
               className="p-3 hover:bg-white/10 rounded-2xl transition-all text-gray-400 hover:text-white"
             >
-              <Users size={24} />
+              <X size={24} />
             </button>
           </div>
         </div>

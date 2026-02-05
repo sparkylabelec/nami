@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, UserLevel, UserStatus, ORG_STRUCTURE, Report, ReportBlock } from '../types';
+import { User, UserLevel, UserStatus, ORG_STRUCTURE } from '../types';
 import { userService } from '../services/userService';
 import { COMPANY_INFO } from '../constants/company';
 import { 
@@ -8,10 +8,7 @@ import {
   Settings, 
   UserMinus, 
   Loader2, 
-  Save, 
   X, 
-  Database, 
-  Zap,
   CheckCircle2,
   Square,
   CheckSquare,
@@ -21,16 +18,18 @@ import {
   UserX,
   Clock,
   Building2,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Props { user: User; }
 
-const AdminCenter: React.FC<Props> = ({ user }) => {
+// Renamed user prop to currentUser to fix the reference error and ensure consistency with other components
+const AdminCenter: React.FC<Props> = ({ user: currentUser }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingUid, setEditingUid] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{level: UserLevel, department: string, teamId: string}>({level: 1, department: '', teamId: ''});
+  const [confirmDeleteUid, setConfirmDeleteUid] = useState<string | null>(null); // 삭제 확인 상태
   
   const [sortConfig, setSortConfig] = useState<{ key: 'department' | 'teamId' | 'name', direction: 'asc' | 'desc' }>({ key: 'department', direction: 'asc' });
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
@@ -68,9 +67,24 @@ const AdminCenter: React.FC<Props> = ({ user }) => {
     setSortConfig({ key, direction });
   };
 
-  const startEdit = (u: User) => {
-    setEditingUid(u.uid);
-    setEditForm({ level: u.level, department: u.department, teamId: u.teamId });
+  const handleSingleDelete = async (uid: string) => {
+    if (confirmDeleteUid !== uid) {
+      setConfirmDeleteUid(uid);
+      // 3초 후 자동 취소
+      setTimeout(() => setConfirmDeleteUid(prev => prev === uid ? null : prev), 3000);
+      return;
+    }
+
+    try {
+      setIsBatchProcessing(true);
+      await userService.deleteUser(uid);
+      setConfirmDeleteUid(null);
+      await fetchUsers();
+    } catch (error) {
+      alert('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsBatchProcessing(false);
+    }
   };
 
   const toggleStatus = async (targetUser: User) => {
@@ -115,9 +129,11 @@ const AdminCenter: React.FC<Props> = ({ user }) => {
 
   const handleBatchWithdraw = async () => {
     const uids = Array.from(selectedUids);
-    const targets = uids.filter((uid: string) => uid !== user.uid);
+    // Fixed: changed from user.uid to currentUser.uid
+    const targets = uids.filter((uid: string) => uid !== currentUser.uid);
     if (targets.length === 0) return;
-    if (!window.confirm(`선택한 ${targets.length}명의 회원을 정말로 탈퇴 처리하시겠습니까?`)) return;
+    
+    // Batch용 인라인 확인 로직은 이미 하단 바에 버튼 변화로 구현되어 있음
     setIsBatchProcessing(true);
     try {
       const promises = targets.map((uid: string) => userService.updateUser(uid, { status: 'withdrawn' }));
@@ -161,7 +177,6 @@ const AdminCenter: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      {/* Company Info Card for Admin */}
       <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-1/4 -translate-y-1/4">
           <Building2 size={240} />
@@ -249,8 +264,28 @@ const AdminCenter: React.FC<Props> = ({ user }) => {
                         {getStatusBadge(u.status)}
                       </button>
                       <div className="h-4 w-[1px] bg-gray-100"></div>
-                      <button onClick={() => startEdit(u)} className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"><Settings size={16} /></button>
-                      <button onClick={() => userService.deleteUser(u.uid).then(fetchUsers)} disabled={u.uid === user.uid} className="p-2 text-gray-300 hover:text-red-500 hover:bg-white rounded-lg transition-all disabled:opacity-10"><UserMinus size={16} /></button>
+                      <button className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"><Settings size={16} /></button>
+                      
+                      {/* 2단계 삭제 확인 버튼 */}
+                      <button 
+                        onClick={() => handleSingleDelete(u.uid)} 
+                        /* Fixed the reference error for currentUser */
+                        disabled={u.uid === currentUser.uid || isBatchProcessing} 
+                        className={`p-2 rounded-lg transition-all flex items-center gap-2 font-black text-[10px] ${
+                          confirmDeleteUid === u.uid 
+                            ? 'bg-rose-600 text-white shadow-lg animate-pulse' 
+                            : 'text-gray-300 hover:text-red-500 hover:bg-white'
+                        } disabled:opacity-10`}
+                      >
+                        {confirmDeleteUid === u.uid ? (
+                          <>
+                            <AlertTriangle size={14} />
+                            삭제확인
+                          </>
+                        ) : (
+                          <UserMinus size={16} />
+                        )}
+                      </button>
                     </div>
                   </td>
                 </tr>
