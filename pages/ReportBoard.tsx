@@ -392,7 +392,7 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
 
   if (isAdding) {
     return (
-      <div className="max-w-4xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="max-w-4xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-screen">
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageChange} />
         <div className="flex items-center justify-between mb-8 sticky top-0 bg-gray-50/80 backdrop-blur-md py-4 z-10 px-4 rounded-b-3xl">
           <button onClick={() => { setIsAdding(false); setEditingReport(null); setTitle(''); setBlocks([]); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={24} /></button>
@@ -418,118 +418,99 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
             </button>
           </div>
         </div>
+        
         <div className="mb-10 px-4">
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="보고서 제목" className="w-full text-4xl font-extrabold text-gray-900 border-none bg-transparent outline-none" />
         </div>
-        <div className="space-y-10 px-4">
-          {blocks.map((block, index) => (
-            <div key={block.id} className={`relative group overflow-hidden ${block.type === 'info_header' ? '' : 'bg-white rounded-2xl shadow-sm border border-gray-100'}`}>
-              {block.type !== 'info_header' && (
-                <div className="flex items-center justify-between px-6 py-3 border-b border-gray-50 bg-gray-50/50">
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{block.type}</span>
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => moveBlock(index, 'up')} 
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
-                      >
-                        <ChevronUp size={16} />
-                      </button>
-                      <button 
-                        onClick={() => moveBlock(index, 'down')} 
-                        disabled={index === blocks.length - 1}
-                        className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
-                      >
-                        <ChevronDown size={16} />
+
+        {/* 편집 캔버스 영역 */}
+        <div className="flex flex-col px-4">
+          <div className="space-y-10 w-full">
+            {blocks.map((block, index) => (
+              <div key={block.id} className={`relative group overflow-hidden ${block.type === 'info_header' ? '' : 'bg-white rounded-2xl shadow-sm border border-gray-100'}`}>
+                {block.type !== 'info_header' && (
+                  <div className="flex items-center justify-between px-6 py-3 border-b border-gray-50 bg-gray-50/50">
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{block.type}</span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => moveBlock(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-20 transition-colors">
+                          <ChevronUp size={16} />
+                        </button>
+                        <button onClick={() => moveBlock(index, 'down')} disabled={index === blocks.length - 1} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-20 transition-colors">
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <button onClick={() => removeBlock(block.id)} className="text-gray-300 hover:text-red-400"><X size={16} /></button>
+                  </div>
+                )}
+                
+                {block.type === 'info_header' ? (
+                  <div className="relative group/info">
+                    {renderInfoHeader(block.content)}
+                    <button onClick={() => removeBlock(block.id)} className="absolute -top-2 -right-2 bg-white text-gray-300 hover:text-red-400 shadow-sm border border-gray-100 p-1 rounded-full opacity-0 group-hover/info:opacity-100 transition-opacity">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : block.type === 'text' ? (
+                  <ReactQuill ref={(el) => (quillRefs.current[block.id] = el)} theme="snow" value={block.content} onChange={(val) => updateBlock(block.id, val)} modules={getQuillModules(block.id)} />
+                ) : (
+                  <div className="p-8 bg-gray-50/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-4">
+                      {block.images?.map((img, idx) => (
+                        <div key={idx} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 group/img">
+                          <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-3">
+                            <img src={img} className="w-full h-full object-cover" />
+                            <button onClick={() => removeImage(block.id, idx)} className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <div className="relative">
+                            <MessageSquareText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
+                            <input type="text" placeholder="사진에 대한 설명을 입력하세요..." value={block.imageCaptions?.[idx] || ''} onChange={(e) => updateImageCaption(block.id, idx, e.target.value)} className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={() => triggerImageUpload(block.id)} disabled={uploadingBlockIds.has(block.id)} className="aspect-[4/3] bg-white border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:bg-indigo-50 hover:border-indigo-300 transition-all group/add">
+                        {uploadingBlockIds.has(block.id) ? (
+                          <Loader2 className="animate-spin text-indigo-400" size={32} />
+                        ) : (
+                          <>
+                            <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover/add:bg-indigo-100 group-hover/add:text-indigo-600 transition-colors">
+                              <Upload size={24} />
+                            </div>
+                            <span className="text-sm font-bold group-hover/add:text-indigo-600">이미지 추가</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
-                  <button onClick={() => removeBlock(block.id)} className="text-gray-300 hover:text-red-400"><X size={16} /></button>
-                </div>
-              )}
-              
-              {block.type === 'info_header' ? (
-                <div className="relative group/info">
-                  {renderInfoHeader(block.content)}
-                  <button 
-                    onClick={() => removeBlock(block.id)} 
-                    className="absolute -top-2 -right-2 bg-white text-gray-300 hover:text-red-400 shadow-sm border border-gray-100 p-1 rounded-full opacity-0 group-hover/info:opacity-100 transition-opacity"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ) : block.type === 'text' ? (
-                <ReactQuill ref={(el) => (quillRefs.current[block.id] = el)} theme="snow" value={block.content} onChange={(val) => updateBlock(block.id, val)} modules={getQuillModules(block.id)} />
-              ) : (
-                <div className="p-8 bg-gray-50/30">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-4">
-                    {block.images?.map((img, idx) => (
-                      <div key={idx} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 group/img">
-                        <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-3">
-                          <img src={img} className="w-full h-full object-cover" />
-                          <button 
-                            onClick={() => removeImage(block.id, idx)}
-                            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <MessageSquareText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
-                          <input 
-                            type="text" 
-                            placeholder="사진에 대한 설명을 입력하세요..." 
-                            value={block.imageCaptions?.[idx] || ''}
-                            onChange={(e) => updateImageCaption(block.id, idx, e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <button 
-                      onClick={() => triggerImageUpload(block.id)} 
-                      disabled={uploadingBlockIds.has(block.id)} 
-                      className="aspect-[4/3] bg-white border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:bg-indigo-50 hover:border-indigo-300 transition-all group/add"
-                    >
-                      {uploadingBlockIds.has(block.id) ? (
-                        <Loader2 className="animate-spin text-indigo-400" size={32} />
-                      ) : (
-                        <>
-                          <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover/add:bg-indigo-100 group-hover/add:text-indigo-600 transition-colors">
-                            <Upload size={24} />
-                          </div>
-                          <span className="text-sm font-bold group-hover/add:text-indigo-600">이미지 추가</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            ))}
+          </div>
 
-          {/* 블록 추가 영역 - 글쓰기 영역 하단으로 이동 및 모바일 최적화 */}
-          <div className="mt-12 mb-16 flex justify-center">
-            <div className="bg-white border border-gray-100 shadow-sm rounded-3xl p-1.5 md:p-2.5 flex items-center gap-2 md:gap-4 ring-1 ring-black/5">
+          {/* 블록 추가 영역 - 글상자 하단에 동적으로 따라오도록 배치 최적화 */}
+          <div className="mt-14 mb-20 flex justify-center w-full animate-in fade-in slide-in-from-top-2 duration-700 delay-150">
+            <div className="bg-white/80 backdrop-blur-sm border border-gray-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] p-2 flex items-center gap-2 md:gap-4 ring-1 ring-black/[0.03]">
               <button 
                 onClick={() => addBlock('text')} 
-                className="flex items-center gap-1.5 md:gap-2.5 px-3 py-2 md:px-6 md:py-3.5 text-gray-600 font-bold hover:text-indigo-600 hover:bg-indigo-50/50 rounded-2xl transition-all text-[11px] md:text-sm group"
+                className="flex items-center gap-2 md:gap-3 px-4 py-2.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[11px] md:text-sm group relative"
               >
-                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
-                  <TypeIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-400 group-hover:text-indigo-600" />
+                <div className="p-1.5 bg-gray-100 rounded-xl group-hover:bg-indigo-100 transition-colors">
+                  <TypeIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
                 </div>
                 <span>텍스트 블록 추가</span>
               </button>
               
-              <div className="w-[1px] h-6 bg-gray-100"></div>
+              <div className="w-[1px] h-8 bg-gray-100"></div>
               
               <button 
                 onClick={() => addBlock('image_gallery')} 
-                className="flex items-center gap-1.5 md:gap-2.5 px-3 py-2 md:px-6 md:py-3.5 text-gray-600 font-bold hover:text-indigo-600 hover:bg-indigo-50/50 rounded-2xl transition-all text-[11px] md:text-sm group"
+                className="flex items-center gap-2 md:gap-3 px-4 py-2.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[11px] md:text-sm group relative"
               >
-                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
-                  <ImageIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-400 group-hover:text-indigo-600" />
+                <div className="p-1.5 bg-gray-100 rounded-xl group-hover:bg-indigo-100 transition-colors">
+                  <ImageIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
                 </div>
                 <span>이미지 블록 추가</span>
               </button>
