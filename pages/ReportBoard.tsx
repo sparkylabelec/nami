@@ -490,27 +490,27 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
             ))}
           </div>
 
-          {/* 블록 추가 영역 - 글상자 하단에 동적으로 따라오도록 배치 최적화 */}
+          {/* 블록 추가 영역 - 모바일 크기 50% 축소 최적화 */}
           <div className="mt-14 mb-20 flex justify-center w-full animate-in fade-in slide-in-from-top-2 duration-700 delay-150">
-            <div className="bg-white/80 backdrop-blur-sm border border-gray-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] p-2 flex items-center gap-2 md:gap-4 ring-1 ring-black/[0.03]">
+            <div className="bg-white/80 backdrop-blur-sm border border-gray-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-full p-1 md:p-2 flex items-center gap-1 md:gap-4 ring-1 ring-black/[0.03]">
               <button 
                 onClick={() => addBlock('text')} 
-                className="flex items-center gap-2 md:gap-3 px-4 py-2.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[11px] md:text-sm group relative"
+                className="flex items-center gap-1.5 md:gap-3 px-2.5 py-1.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[10px] md:text-sm group relative"
               >
-                <div className="p-1.5 bg-gray-100 rounded-xl group-hover:bg-indigo-100 transition-colors">
-                  <TypeIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
+                <div className="p-1 md:p-1.5 bg-gray-100 rounded-lg md:rounded-xl group-hover:bg-indigo-100 transition-colors">
+                  <TypeIcon size={12} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
                 </div>
                 <span>텍스트 블록 추가</span>
               </button>
               
-              <div className="w-[1px] h-8 bg-gray-100"></div>
+              <div className="w-[1px] h-4 md:h-8 bg-gray-100"></div>
               
               <button 
                 onClick={() => addBlock('image_gallery')} 
-                className="flex items-center gap-2 md:gap-3 px-4 py-2.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[11px] md:text-sm group relative"
+                className="flex items-center gap-1.5 md:gap-3 px-2.5 py-1.5 md:px-7 md:py-4 text-gray-700 font-bold hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all text-[10px] md:text-sm group relative"
               >
-                <div className="p-1.5 bg-gray-100 rounded-xl group-hover:bg-indigo-100 transition-colors">
-                  <ImageIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
+                <div className="p-1 md:p-1.5 bg-gray-100 rounded-lg md:rounded-xl group-hover:bg-indigo-100 transition-colors">
+                  <ImageIcon size={12} className="md:w-[18px] md:h-[18px] text-gray-500 group-hover:text-indigo-600" />
                 </div>
                 <span>이미지 블록 추가</span>
               </button>
