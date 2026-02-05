@@ -1,0 +1,7 @@
+{
+  "name": "Phase 8. 배포",
+  "description": "배포",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
