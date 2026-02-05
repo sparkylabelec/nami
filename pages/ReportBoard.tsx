@@ -36,7 +36,6 @@ import {
 
 interface Props { user: User; }
 
-// 리포트 보드 전용 실시간 시계 및 달력 위젯
 const ReportHeaderClock = () => {
   const [now, setNow] = useState(new Date());
 
@@ -52,12 +51,10 @@ const ReportHeaderClock = () => {
 
   return (
     <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-3xl border border-gray-100 shadow-sm">
-      {/* 달력 모양 날짜 표시 */}
       <div className="flex flex-col items-center justify-center bg-indigo-50 w-12 h-14 rounded-2xl border border-indigo-100 shrink-0">
         <span className="text-[10px] font-black text-indigo-400 uppercase leading-none mb-1">{weekday}</span>
         <span className="text-xl font-black text-indigo-600 leading-none">{day}</span>
       </div>
-      {/* 디지털 시계 및 상세 정보 */}
       <div className="flex flex-col">
         <div className="flex items-center gap-1.5 text-gray-400">
            <Clock size={12} className="text-indigo-300" />
@@ -79,11 +76,9 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
   const [isExporting, setIsExporting] = useState<'word' | 'pptx' | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // 필터 상태
   const [titleFilter, setTitleFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
 
-  // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
@@ -210,7 +205,6 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
     finally { setIsLoading(false); }
   };
 
-  // 필터링 로직
   const filteredReports = useMemo(() => {
     return reports.filter(r => {
       const matchesTitle = r.title.toLowerCase().includes(titleFilter.toLowerCase());
@@ -398,7 +392,7 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
 
   if (isAdding) {
     return (
-      <div className="max-w-4xl mx-auto pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="max-w-4xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleImageChange} />
         <div className="flex items-center justify-between mb-8 sticky top-0 bg-gray-50/80 backdrop-blur-md py-4 z-10 px-4 rounded-b-3xl">
           <button onClick={() => { setIsAdding(false); setEditingReport(null); setTitle(''); setBlocks([]); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={24} /></button>
@@ -408,16 +402,18 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
           </div>
 
           <div className="flex gap-2">
-            <button onClick={handleExportToPptx} disabled={!!isExporting} className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-full font-bold shadow-sm hover:bg-amber-100 transition-all active:scale-95 disabled:opacity-50 text-sm">
-              {isExporting === 'pptx' ? <Loader2 className="animate-spin" size={16} /> : <Presentation size={16} />}
-              PPTX 저장
+            <button onClick={handleExportToPptx} disabled={!!isExporting} className="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-full font-bold shadow-sm hover:bg-amber-100 transition-all active:scale-95 disabled:opacity-50 text-[10px] md:text-sm">
+              {isExporting === 'pptx' ? <Loader2 className="animate-spin" size={14} /> : <Presentation size={14} className="md:w-4 md:h-4" />}
+              <span className="hidden xs:inline">PPTX 저장</span>
+              <span className="xs:hidden">PPTX</span>
             </button>
-            <button onClick={handleExportToWord} disabled={!!isExporting} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-full font-bold shadow-sm hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50 text-sm">
-              {isExporting === 'word' ? <Loader2 className="animate-spin" size={16} /> : <FileDown size={16} />}
-              Word 저장
+            <button onClick={handleExportToWord} disabled={!!isExporting} className="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-white border border-gray-200 text-gray-700 rounded-full font-bold shadow-sm hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50 text-[10px] md:text-sm">
+              {isExporting === 'word' ? <Loader2 className="animate-spin" size={14} /> : <FileDown size={14} className="md:w-4 md:h-4" />}
+              <span className="hidden xs:inline">Word 저장</span>
+              <span className="xs:hidden">Word</span>
             </button>
-            <button onClick={handleSave} disabled={status === 'saving'} className={`flex items-center gap-2 px-5 py-2 rounded-full font-bold shadow-lg transition-all active:scale-95 ${status === 'success' ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'} disabled:opacity-50 text-sm ml-2`}>
-              {status === 'saving' ? <Loader2 className="animate-spin" size={18} /> : status === 'success' ? <CheckCircle size={18} /> : <Save size={18} />}
+            <button onClick={handleSave} disabled={status === 'saving'} className={`flex items-center gap-1.5 md:gap-2 px-4 py-1.5 md:px-5 md:py-2 rounded-full font-bold shadow-lg transition-all active:scale-95 ${status === 'success' ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'} disabled:opacity-50 text-[10px] md:text-sm ml-1 md:ml-2`}>
+              {status === 'saving' ? <Loader2 className="animate-spin" size={16} /> : status === 'success' ? <CheckCircle size={16} /> : <Save size={16} />}
               {status === 'saving' ? '저장 중' : status === 'success' ? '완료' : '저장하기'}
             </button>
           </div>
@@ -512,10 +508,33 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
               )}
             </div>
           ))}
-        </div>
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-white shadow-2xl rounded-full px-8 py-4 flex gap-8 z-50 border border-gray-100">
-          <button onClick={() => addBlock('text')} className="flex items-center gap-2 text-gray-600 font-bold hover:text-indigo-600 transition-colors"><TypeIcon size={18} /> 텍스트 블록 추가</button>
-          <button onClick={() => addBlock('image_gallery')} className="flex items-center gap-2 text-gray-600 font-bold hover:text-indigo-600 transition-colors"><ImageIcon size={18} /> 이미지 블록 추가</button>
+
+          {/* 블록 추가 영역 - 글쓰기 영역 하단으로 이동 및 모바일 최적화 */}
+          <div className="mt-12 mb-16 flex justify-center">
+            <div className="bg-white border border-gray-100 shadow-sm rounded-3xl p-1.5 md:p-2.5 flex items-center gap-2 md:gap-4 ring-1 ring-black/5">
+              <button 
+                onClick={() => addBlock('text')} 
+                className="flex items-center gap-1.5 md:gap-2.5 px-3 py-2 md:px-6 md:py-3.5 text-gray-600 font-bold hover:text-indigo-600 hover:bg-indigo-50/50 rounded-2xl transition-all text-[11px] md:text-sm group"
+              >
+                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                  <TypeIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-400 group-hover:text-indigo-600" />
+                </div>
+                <span>텍스트 블록 추가</span>
+              </button>
+              
+              <div className="w-[1px] h-6 bg-gray-100"></div>
+              
+              <button 
+                onClick={() => addBlock('image_gallery')} 
+                className="flex items-center gap-1.5 md:gap-2.5 px-3 py-2 md:px-6 md:py-3.5 text-gray-600 font-bold hover:text-indigo-600 hover:bg-indigo-50/50 rounded-2xl transition-all text-[11px] md:text-sm group"
+              >
+                <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                  <ImageIcon size={14} className="md:w-[18px] md:h-[18px] text-gray-400 group-hover:text-indigo-600" />
+                </div>
+                <span>이미지 블록 추가</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -556,7 +575,6 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      {/* 필터 바 */}
       <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -649,7 +667,6 @@ const ReportBoard: React.FC<Props> = ({ user }) => {
         </div>
       )}
 
-      {/* 페이지네이션 컨트롤 */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 py-8">
           <button
